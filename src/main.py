@@ -9,10 +9,10 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from models import db,Todos
+import mysql.connector
 
 
 app = Flask(__name__)
-
 app.url_map.strict_slashes = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -33,30 +33,38 @@ def sitemap():
 
 @app.route('/todos', methods=['GET'])
 def get_task():
-    todos=Todos.query.all()
-    todos=list(map(lambda task: task.serialize(),todos))
-    return jsonify(todos),200
+    tasks=Todos.query.all()
+    todo_list=list(map(lambda task: task.serialize(),tasks))
+    return jsonify(todo_list),200
 
 @app.route('/todos', methods=['POST'])
 def post_task():
-    request_body = request.get_json() # get the request body content
+    body = request.get_json() 
 
-    # if 'done' not in body:
-    #     return 'please specify true or false in done',400
-    # if 'label' not in body:
-    #     return 'please specify the label', 400
-    task=Todos(done=request_body['done'],label=request_body['label'])
-    db.session.add(task)
+    if 'done' not in body:
+        return 'please specify true or false in done',400
+    if 'label' not in body:
+        return 'please specify the label', 400
+    todo_list=Todos(done=body['done'], label=body['label'])
+    db.session.add(todo_list)
     db.session.commit()
-    return jsonify(task.serialize()),200
+    return jsonify(todo_list.serialize()), 200
 
 @app.route('/todos/<id>', methods=['DELETE'])
-def delete_task():
-    deleted_todo=Todos.query.filter_by(id)
-    db.session.delete(deleted_todo)
+def delete_task(id):
+    todo_list=Todos.query.filter_by(id=id).first_or_404()
+    db.session.delete(todo_list)
     db.session.commit()
-    return jsonify(deleted_todo.serialize()),200
+    return jsonify(todo_list.serialize()),200
 
+@app.route('/todos', methods=['PUT'])
+def update_task():
+    body = request.get_json()
+    todo_list=Todos.query.filter_by(id=body['id']).first_or_404()
+    todo_list.done=body['done']
+    todo_list.label=body['label']
+    db.session.commit()
+    return jsonify(todo_list.serialize()),200
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
